@@ -690,6 +690,7 @@ vMBServerTask( void *arg )
 
     for( ;; )
     {
+    	/*
         if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
         {
             fprintf( stderr, "%s: can't initialize modbus stack!\r\n", PROG );
@@ -706,9 +707,10 @@ vMBServerTask( void *arg )
             }
             while( xStatus == MB_ENOERR );
         }
-        /* An error occured. Maybe we can restart. */
+        // An error occured. Maybe we can restart.
         ( void )eMBDisable(  );
         ( void )eMBClose(  );
+        */
     }
 }
 
