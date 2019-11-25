@@ -31,7 +31,7 @@
 #ifndef _MB_FRAME_H
 #define _MB_FRAME_H
 
-//#include "port.h"
+#include "mb.h"
 
 #ifdef __cplusplus
 PR_BEGIN_EXTERN_C
@@ -72,7 +72,7 @@ PR_BEGIN_EXTERN_C
 typedef void    ( *pvMBFrameStart ) ( void );
 
 typedef void    ( *pvMBFrameStop ) ( void );
-/*
+
 typedef eMBErrorCode( *peMBFrameReceive ) ( unsigned char * pucRcvAddress,
                                             unsigned char ** pucFrame,
                                             unsigned short * pusLength );
@@ -80,7 +80,7 @@ typedef eMBErrorCode( *peMBFrameReceive ) ( unsigned char * pucRcvAddress,
 typedef eMBErrorCode( *peMBFrameSend ) ( UCHAR slaveAddress,
                                          const UCHAR * pucFrame,
                                          USHORT usLength );
-*/
+
 typedef void( *pvMBFrameClose ) ( void );
 
 #ifdef __cplusplus

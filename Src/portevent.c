@@ -36,12 +36,25 @@ static sys_mbox_t xMailBox = SYS_MBOX_NULL;
 static eMBEventType eMailBoxEvent;
 
 /* ----------------------- Start implementation -----------------------------*/
+/*
 BOOL
 xMBPortEventInit( void )
 {
     eMailBoxEvent = EV_READY;
     xMailBox = sys_mbox_new(  );
     return xMailBox != SYS_MBOX_NULL ? TRUE : FALSE;
+}
+
+*/
+BOOL
+xMBPortEventInit( void )
+{
+	sys_mbox_t mbox;
+	int size= 100; //need chack value
+	int ret;
+    eMailBoxEvent = EV_READY;
+    ret = sys_mbox_new(&xMailBox, size);
+    return ret != SYS_MBOX_NULL ? TRUE : FALSE;
 }
 
 void

@@ -690,14 +690,14 @@ vMBServerTask( void *arg )
 
     for( ;; )
     {
-    	/*
+
         if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
         {
-            fprintf( stderr, "%s: can't initialize modbus stack!\r\n", PROG );
+        //    fprintf( stderr, "%s: can't initialize modbus stack!\r\n", PROG );
         }
         else if( eMBEnable(  ) != MB_ENOERR )
         {
-            fprintf( stderr, "%s: can't enable modbus stack!\r\n", PROG );
+        //    fprintf( stderr, "%s: can't enable modbus stack!\r\n", PROG );
         }
         else
         {
@@ -710,8 +710,21 @@ vMBServerTask( void *arg )
         // An error occured. Maybe we can restart.
         ( void )eMBDisable(  );
         ( void )eMBClose(  );
-        */
+
     }
+}
+
+eMBErrorCode
+eMBRegCoilsCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegisterMode eMode )
+{
+    return MB_ENOREG;
+}
+
+
+eMBErrorCode
+eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNDiscrete )
+{
+    return MB_ENOREG;
 }
 
 
