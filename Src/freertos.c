@@ -90,6 +90,7 @@ osThreadId defaultTaskHandle;
 osThreadId myTask02Handle;
 osThreadId myTask03Handle;
 osThreadId myTask04Handle;
+osThreadId myTask05_modbusHandle;
 osSemaphoreId myBinarySem01_SPI1THandle;
 osSemaphoreId myBinarySem02_USART2THandle;
 osSemaphoreId myBinarySem03_USART2RHandle;
@@ -115,7 +116,8 @@ static USHORT   usRegHoldingBuf[REG_HOLDING_NREGS];
 
 /* ------------------------ Static functions ------------------------------ */
 static void     vlwIPInit( void );
-static void     vMBServerTask( void *arg );
+//static void     vMBServerTask( void *arg );
+static void     vMBServerTask( void);
 
 //uint8_t testDataToReceiveU[U2_BUFF_SIZE];
 //uint16_t u2cnt;
@@ -137,6 +139,7 @@ void StartDefaultTask(void const * argument);
 void StartTask02(void const * argument);
 void StartTask03(void const * argument);
 void StartTask04(void const * argument);
+void StartTask05_modbus(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 extern void MX_LWIP_Init(void);
@@ -220,6 +223,10 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(myTask04, StartTask04, osPriorityIdle, 0, 128);
   myTask04Handle = osThreadCreate(osThread(myTask04), NULL);
 
+  /* definition and creation of myTask05_modbus */
+  osThreadDef(myTask05_modbus, StartTask05_modbus, osPriorityIdle, 0, 1024);
+  myTask05_modbusHandle = osThreadCreate(osThread(myTask05_modbus), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -251,10 +258,10 @@ void StartDefaultTask(void const * argument)
 
       sys_thread_new("udp_thread", udp_thread, NULL, DEFAULT_THREAD_STACKSIZE, osPriorityNormal);
 
-      if( sys_thread_new("modb_thread", vMBServerTask, NULL, DEFAULT_THREAD_STACKSIZE, mainMB_TASK_PRIORITY ) == NULL )
-         {
-             printfpd("\n\r %s: can't create modbus task!\r\n", PROG );
-         }
+ //     if( sys_thread_new("modb_thread", vMBServerTask, NULL, DEFAULT_THREAD_STACKSIZE, mainMB_TASK_PRIORITY ) == NULL )
+  //       {
+  //           printfpd("\n\r %s: can't create modbus task!\r\n", PROG );
+  //       }
 
   conn = netconn_new(NETCONN_TCP);
     if (conn != NULL)
@@ -546,12 +553,25 @@ void StartTask04(void const * argument)
    if(cnt > 1000) {
    HAL_RTC_GetTime(&hrtc, &RTime, RTC_FORMAT_BIN); // RTC_FORMAT_BCD);
    sprintf(Buff, "\n\r%02d:%02d:%02d ", RTime.Hours, RTime.Minutes, RTime.Seconds);
-   printfp(Buff);
+//t   printfp(Buff);
    cnt = 0;
    }
     osDelay(1);
   }
   /* USER CODE END StartTask04 */
+}
+
+/* StartTask05_modbus function */
+void StartTask05_modbus(void const * argument)
+{
+  /* USER CODE BEGIN StartTask05_modbus */
+	vMBServerTask();
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTask05_modbus */
 }
 
 /* USER CODE BEGIN Application */
@@ -684,7 +704,8 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 }
 
 void
-vMBServerTask( void *arg )
+//vMBServerTask( void *arg )
+vMBServerTask( void )
 {
     eMBErrorCode    xStatus;
 
@@ -693,17 +714,19 @@ vMBServerTask( void *arg )
 
         if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
         {
-        //    fprintf( stderr, "%s: can't initialize modbus stack!\r\n", PROG );
+            printfp(" can't initialize modbus stack!\r\n");
         }
         else if( eMBEnable(  ) != MB_ENOERR )
         {
-        //    fprintf( stderr, "%s: can't enable modbus stack!\r\n", PROG );
+            printfp( "can't enable modbus stack!\r\n");
         }
         else
         {
+        	 printfp(" is enabled modbus stack!\r\n");
             do
             {
                 xStatus = eMBPoll(  );
+         // 	    osDelay(1); //t
             }
             while( xStatus == MB_ENOERR );
         }
@@ -713,6 +736,31 @@ vMBServerTask( void *arg )
 
     }
 }
+
+/*
+void
+vMBServerTask( void )
+{
+    eMBErrorCode    xStatus;
+    if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
+        {
+            printfp(" can't initialize modbus stack!\r\n");
+        }
+        else if( eMBEnable(  ) != MB_ENOERR )
+        {
+            printfp( "can't enable modbus stack!\r\n");
+        }
+        else {
+       	  ( void )eMBDisable(  );
+         ( void )eMBClose(  );
+        	return;
+        }
+     for( ;; )
+    {
+               xStatus = eMBPoll(  );
+    }
+ }
+*/
 
 eMBErrorCode
 eMBRegCoilsCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegisterMode eMode )

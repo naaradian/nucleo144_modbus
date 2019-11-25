@@ -66,6 +66,18 @@
 #include "usart.h"
 #include "adc.h"
 #include "tim.h"
+#include "rtc.h"
+
+#include "port.h"
+#include "mb.h"
+#include "mbtcp.h"
+/*
+#include "lwip/err.h"
+#include "lwip/ip_addr.h"
+#include "lwip/def.h"
+#include "lwip/pbuf.h"
+#include "lwip/stats.h"
+*/
 
 //#include "stm32f4xx_dma.h"
 //#include "Trace.h"
@@ -83,6 +95,28 @@ osSemaphoreId myBinarySem02_USART2THandle;
 osSemaphoreId myBinarySem03_USART2RHandle;
 
 /* USER CODE BEGIN Variables */
+/* ------------------------ Defines --------------------------------------- */
+#define mainCOM_TEST_BAUD_RATE  ( ( unsigned portLONG ) 38400 )
+
+#define mainMB_TASK_PRIORITY    ( tskIDLE_PRIORITY + 3 )
+#define PROG                    "FreeModbus"
+#define REG_INPUT_START         1000
+#define REG_INPUT_NREGS         4
+#define REG_HOLDING_START       2000
+#define REG_HOLDING_NREGS       130
+
+/* ----------------------- Static variables ---------------------------------*/
+static USHORT   usRegInputStart = REG_INPUT_START;
+static USHORT   usRegInputBuf[REG_INPUT_NREGS];
+static USHORT   usRegHoldingStart = REG_HOLDING_START;
+static USHORT   usRegHoldingBuf[REG_HOLDING_NREGS];
+
+//xComPortHandle  xSTDComPort = NULL;
+
+/* ------------------------ Static functions ------------------------------ */
+static void     vlwIPInit( void );
+static void     vMBServerTask( void *arg );
+
 //uint8_t testDataToReceiveU[U2_BUFF_SIZE];
 //uint16_t u2cnt;
 //uint8_t RB;
@@ -216,6 +250,11 @@ void StartDefaultTask(void const * argument)
       err_t recv_err;
 
       sys_thread_new("udp_thread", udp_thread, NULL, DEFAULT_THREAD_STACKSIZE, osPriorityNormal);
+
+      if( sys_thread_new("modb_thread", vMBServerTask, NULL, DEFAULT_THREAD_STACKSIZE, mainMB_TASK_PRIORITY ) == NULL )
+         {
+             printfpd("\n\r %s: can't create modbus task!\r\n", PROG );
+         }
 
   conn = netconn_new(NETCONN_TCP);
     if (conn != NULL)
@@ -479,7 +518,7 @@ void StartTask03(void const * argument)
 		//  HAL_Delay(100);
 		  //HAL_StatusTypeDef HAL_ADC_Start_DMA(ADC_HandleTypeDef* hadc, uint32_t* pData, uint32_t Length)
 		  temp = CalcTemp(dtemp);
-		  printfpd("\n\r> %d", temp);
+	//t	  printfpd("\n\r> %d", temp);
 		  HAL_ADC_Stop_DMA(&hadc1);
 		  HAL_ADC_Start_DMA(&hadc1, &dtemp, sizeof(dtemp));
 		  HAL_GPIO_TogglePin( GPIOG, GPIO_PIN_0); //to use interrupt
@@ -497,9 +536,19 @@ void StartTask03(void const * argument)
 void StartTask04(void const * argument)
 {
   /* USER CODE BEGIN StartTask04 */
+	 RTC_TimeTypeDef RTime;
+	 unsigned long cnt = 0;
+	 char Buff[20];
   /* Infinite loop */
   for(;;)
   {
+   cnt++;
+   if(cnt > 1000) {
+   HAL_RTC_GetTime(&hrtc, &RTime, RTC_FORMAT_BIN); // RTC_FORMAT_BCD);
+   sprintf(Buff, "\n\r%02d:%02d:%02d ", RTime.Hours, RTime.Minutes, RTime.Seconds);
+//t   printfp(Buff);
+   cnt = 0;
+   }
     osDelay(1);
   }
   /* USER CODE END StartTask04 */
@@ -633,6 +682,119 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
             the HAL_SPI_RxCpltCallback should be implemented in the user file
   */
 }
+
+void
+vMBServerTask( void *arg )
+{
+    eMBErrorCode    xStatus;
+
+    for( ;; )
+    {
+
+        if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
+        {
+            printfp(" can't initialize modbus stack!\r\n");
+        }
+        else if( eMBEnable(  ) != MB_ENOERR )
+        {
+            printfp( "can't enable modbus stack!\r\n");
+        }
+        else
+        {
+        	 printfp(" is enabled modbus stack!\r\n");
+            do
+            {
+                xStatus = eMBPoll(  );
+            }
+            while( xStatus == MB_ENOERR );
+        }
+        // An error occured. Maybe we can restart.
+        ( void )eMBDisable(  );
+        ( void )eMBClose(  );
+
+    }
+}
+
+eMBErrorCode
+eMBRegCoilsCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegisterMode eMode )
+{
+    return MB_ENOREG;
+}
+
+
+eMBErrorCode
+eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNDiscrete )
+{
+    return MB_ENOREG;
+}
+
+eMBErrorCode
+eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs, eMBRegisterMode eMode )
+{
+    eMBErrorCode    eStatus = MB_ENOERR;
+    int             iRegIndex;
+
+    if( ( usAddress >= REG_HOLDING_START ) &&
+        ( usAddress + usNRegs <= REG_HOLDING_START + REG_HOLDING_NREGS ) )
+    {
+        iRegIndex = ( int )( usAddress - usRegHoldingStart );
+        switch ( eMode )
+        {
+            /* Pass current register values to the protocol stack. */
+        case MB_REG_READ:
+            while( usNRegs > 0 )
+            {
+                *pucRegBuffer++ = ( UCHAR ) ( usRegHoldingBuf[iRegIndex] >> 8 );
+                *pucRegBuffer++ = ( UCHAR ) ( usRegHoldingBuf[iRegIndex] & 0xFF );
+                iRegIndex++;
+                usNRegs--;
+            }
+            break;
+
+            /* Update current register values with new values from the
+             * protocol stack. */
+        case MB_REG_WRITE:
+            while( usNRegs > 0 )
+            {
+                usRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
+                usRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
+                iRegIndex++;
+                usNRegs--;
+            }
+        }
+    }
+    else
+    {
+        eStatus = MB_ENOREG;
+    }
+    return eStatus;
+}
+
+eMBErrorCode
+eMBRegInputCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs )
+{
+    eMBErrorCode    eStatus = MB_ENOERR;
+    int             iRegIndex;
+
+    if( ( usAddress >= REG_INPUT_START )
+        && ( usAddress + usNRegs <= REG_INPUT_START + REG_INPUT_NREGS ) )
+    {
+        iRegIndex = ( int )( usAddress - usRegInputStart );
+        while( usNRegs > 0 )
+        {
+            *pucRegBuffer++ = ( unsigned char )( usRegInputBuf[iRegIndex] >> 8 );
+            *pucRegBuffer++ = ( unsigned char )( usRegInputBuf[iRegIndex] & 0xFF );
+            iRegIndex++;
+            usNRegs--;
+        }
+    }
+    else
+    {
+        eStatus = MB_ENOREG;
+    }
+    return eStatus;
+}
+
 
 
      
