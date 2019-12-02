@@ -90,7 +90,7 @@ BOOL( *pxMBPortCBTimerExpired ) ( void );
 BOOL( *pxMBFrameCBReceiveFSMCur ) ( void );
 BOOL( *pxMBFrameCBTransmitFSMCur ) ( void );
 
-/* An array of Modbus functions handlers which associates Modbus function
+/* An array of Modbus functions handlers which associate-s Modbus function
  * codes with implementing functions.
  */
 static xMBFunctionHandler xFuncHandlers[MB_FUNC_HANDLERS_MAX] = {
@@ -358,7 +358,10 @@ eMBPoll( void )
             break;
 
         case EV_FRAME_RECEIVED:
+  //      	printfp(" fr ");
+       // 	return 0;
             eStatus = peMBFrameReceiveCur( &ucRcvAddress, &ucMBFrame, &usLength );
+            printfpd("\n\r %d, ", ucRcvAddress);
             if( eStatus == MB_ENOERR )
             {
                 /* Check if the frame is for us. If not ignore the frame. */
@@ -370,6 +373,8 @@ eMBPoll( void )
             break;
 
         case EV_EXECUTE:
+//        	printfp(" ex ");
+     //   	return 0;
             ucFunctionCode = ucMBFrame[MB_PDU_FUNC_OFF];
             eException = MB_EX_ILLEGAL_FUNCTION;
             for( i = 0; i < MB_FUNC_HANDLERS_MAX; i++ )

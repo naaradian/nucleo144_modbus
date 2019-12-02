@@ -162,16 +162,25 @@ prvxMBTCPPortAccept( void *pvArg, struct tcp_pcb *pxPCB, err_t xErr )
         return xErr;
     }
 
+//ok    return ERR_OK;  //test
+
     /* We can handle only one client. */
     if( pxPCBClient == NULL )
     {
         /* Register the client. */
         pxPCBClient = pxPCB;
 
+ //ok       return ERR_OK;  //test
+
         /* Set up the receive function prvxMBTCPPortReceive( ) to be called when data
          * arrives.
          */
-        tcp_recv( pxPCB, prvxMBTCPPortReceive );
+       tcp_recv( pxPCB, prvxMBTCPPortReceive );
+  //ok      tcp_recv( pxPCB, NULL);  //test
+
+
+        return ERR_OK;  //test
+
 
         /* Register error handler. */
         tcp_err( pxPCB, prvvMBTCPPortError );
@@ -181,6 +190,9 @@ prvxMBTCPPortAccept( void *pvArg, struct tcp_pcb *pxPCB, err_t xErr )
 
         /* Reset the buffers and state variables. */
         usTCPBufPos = 0;
+
+   //wrong     return ERR_OK;  //test
+
 
 #ifdef MB_TCP_DEBUG
         vMBPortLog( MB_LOG_DEBUG, "MBTCP-ACCEPT", "Accepted new client %d.%d.%d.%d\r\n",
@@ -220,12 +232,15 @@ prvxMBTCPPortReceive( void *pvArg, struct tcp_pcb *pxPCB, struct pbuf *p, err_t 
 {
     USHORT          usLength;
 
-    err_t           error;
+//test    err_t           error;
+    err_t           error = ERR_OK;   //my
 
     if( xErr != ERR_OK )
     {
         return xErr;
     }
+
+  //ok  return ERR_OK;  //test
 
     /* If pbuf is NULL then remote end has closed connection. */
     if( p == NULL )
@@ -237,6 +252,8 @@ prvxMBTCPPortReceive( void *pvArg, struct tcp_pcb *pxPCB, struct pbuf *p, err_t 
     /* Acknowledge that we have received the data bytes. */
     tcp_recved( pxPCB, p->len );
 
+//ok    return ERR_OK;  //test
+
     /* Check for internal buffer overflow. In case of an error drop the
      * client. */
     if( ( usTCPBufPos + p->len ) >= MB_TCP_BUF_SIZE )
@@ -246,8 +263,11 @@ prvxMBTCPPortReceive( void *pvArg, struct tcp_pcb *pxPCB, struct pbuf *p, err_t 
     }
     else
     {
+  //  	 return ERR_OK; //test
         memcpy( &aucTCPBuf[usTCPBufPos], p->payload, p->len );
         usTCPBufPos += p->len;
+
+  //ok      return ERR_OK; //test
 
         /* If we have received the MBAP header we can analyze it and calculate
          * the number of bytes left to complete the current request. If complete
@@ -266,9 +286,12 @@ prvxMBTCPPortReceive( void *pvArg, struct tcp_pcb *pxPCB, struct pbuf *p, err_t 
             }
             else if( usTCPBufPos == ( MB_TCP_UID + usLength ) )
             {
+      //      	  return ERR_OK; //test
+
 #ifdef MB_TCP_DEBUG
                 prvvMBTCPLogFrame( "MBTCP-RECV", &aucTCPBuf[0], usTCPBufPos );
 #endif
+  //hier disconnect              return ERR_OK; //test
                 ( void )xMBPortEventPost( EV_FRAME_RECEIVED );
             }
             else

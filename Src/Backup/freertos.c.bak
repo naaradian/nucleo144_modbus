@@ -90,6 +90,9 @@ osThreadId defaultTaskHandle;
 osThreadId myTask02Handle;
 osThreadId myTask03Handle;
 osThreadId myTask04Handle;
+osThreadId myTask05Handle;
+osMessageQId myQueue01Handle;
+osMessageQId myQueue02Handle;
 osSemaphoreId myBinarySem01_SPI1THandle;
 osSemaphoreId myBinarySem02_USART2THandle;
 osSemaphoreId myBinarySem03_USART2RHandle;
@@ -115,7 +118,8 @@ static USHORT   usRegHoldingBuf[REG_HOLDING_NREGS];
 
 /* ------------------------ Static functions ------------------------------ */
 static void     vlwIPInit( void );
-static void     vMBServerTask( void *arg );
+//static void     vMBServerTask( void *arg );
+static void     vMBServerTask( void);
 
 //uint8_t testDataToReceiveU[U2_BUFF_SIZE];
 //uint16_t u2cnt;
@@ -137,6 +141,7 @@ void StartDefaultTask(void const * argument);
 void StartTask02(void const * argument);
 void StartTask03(void const * argument);
 void StartTask04(void const * argument);
+void StartTask05(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 extern void MX_LWIP_Init(void);
@@ -220,9 +225,22 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(myTask04, StartTask04, osPriorityIdle, 0, 128);
   myTask04Handle = osThreadCreate(osThread(myTask04), NULL);
 
+  /* definition and creation of myTask05 */
+  osThreadDef(myTask05, StartTask05, osPriorityIdle, 0, 3840);
+  myTask05Handle = osThreadCreate(osThread(myTask05), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* Create the queue(s) */
+  /* definition and creation of myQueue01 */
+  osMessageQDef(myQueue01, 16, uint16_t);
+  myQueue01Handle = osMessageCreate(osMessageQ(myQueue01), NULL);
+
+  /* definition and creation of myQueue02 */
+  osMessageQDef(myQueue02, 16, uint16_t);
+  myQueue02Handle = osMessageCreate(osMessageQ(myQueue02), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -554,6 +572,19 @@ void StartTask04(void const * argument)
   /* USER CODE END StartTask04 */
 }
 
+/* StartTask05 function */
+void StartTask05(void const * argument)
+{
+  /* USER CODE BEGIN StartTask05 */
+  vMBServerTask();
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTask05 */
+}
+
 /* USER CODE BEGIN Application */
 /*
 static void udp_thread1(void *arg)
@@ -682,9 +713,10 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
             the HAL_SPI_RxCpltCallback should be implemented in the user file
   */
 }
-
+/*
 void
-vMBServerTask( void *arg )
+//vMBServerTask( void *arg )
+vMBServerTask( void )
 {
     eMBErrorCode    xStatus;
 
@@ -705,6 +737,7 @@ vMBServerTask( void *arg )
             do
             {
                 xStatus = eMBPoll(  );
+         // 	    osDelay(1); //t
             }
             while( xStatus == MB_ENOERR );
         }
@@ -714,6 +747,37 @@ vMBServerTask( void *arg )
 
     }
 }
+*/
+
+void
+vMBServerTask( void )
+{
+    eMBErrorCode    xStatus;
+  //  return;
+   char flag = 1;
+
+    if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
+        {
+            printfp(" can't initialize modbus stack!\r\n");
+        }
+        else if( eMBEnable(  ) != MB_ENOERR )
+        {
+            printfp( "can't enable modbus stack!\r\n");
+            flag = 0;
+            ( void )eMBDisable(  );
+            ( void )eMBClose(  );
+        }
+        else {
+            printfp( " modbus init ok!\r\n");
+        //	return;
+        }
+     for( ;; )
+    {
+              if(flag) { xStatus = eMBPoll();}
+               osDelay(1);
+    }
+ }
+
 
 eMBErrorCode
 eMBRegCoilsCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegisterMode eMode )

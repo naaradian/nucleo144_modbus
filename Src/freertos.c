@@ -90,7 +90,9 @@ osThreadId defaultTaskHandle;
 osThreadId myTask02Handle;
 osThreadId myTask03Handle;
 osThreadId myTask04Handle;
-osThreadId myTask05_modbusHandle;
+osThreadId myTask05Handle;
+osMessageQId myQueue01Handle;
+osMessageQId myQueue02Handle;
 osSemaphoreId myBinarySem01_SPI1THandle;
 osSemaphoreId myBinarySem02_USART2THandle;
 osSemaphoreId myBinarySem03_USART2RHandle;
@@ -101,9 +103,9 @@ osSemaphoreId myBinarySem03_USART2RHandle;
 
 #define mainMB_TASK_PRIORITY    ( tskIDLE_PRIORITY + 3 )
 #define PROG                    "FreeModbus"
-#define REG_INPUT_START         1000
-#define REG_INPUT_NREGS         4
-#define REG_HOLDING_START       2000
+#define REG_INPUT_START         0//1000
+#define REG_INPUT_NREGS         8//4
+#define REG_HOLDING_START       0 //2000
 #define REG_HOLDING_NREGS       130
 
 /* ----------------------- Static variables ---------------------------------*/
@@ -139,7 +141,7 @@ void StartDefaultTask(void const * argument);
 void StartTask02(void const * argument);
 void StartTask03(void const * argument);
 void StartTask04(void const * argument);
-void StartTask05_modbus(void const * argument);
+void StartTask05(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 extern void MX_LWIP_Init(void);
@@ -223,13 +225,22 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(myTask04, StartTask04, osPriorityIdle, 0, 128);
   myTask04Handle = osThreadCreate(osThread(myTask04), NULL);
 
-  /* definition and creation of myTask05_modbus */
-  osThreadDef(myTask05_modbus, StartTask05_modbus, osPriorityIdle, 0, 1024);
-  myTask05_modbusHandle = osThreadCreate(osThread(myTask05_modbus), NULL);
+  /* definition and creation of myTask05 */
+  osThreadDef(myTask05, StartTask05, osPriorityIdle, 0, 3840);
+  myTask05Handle = osThreadCreate(osThread(myTask05), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* Create the queue(s) */
+  /* definition and creation of myQueue01 */
+  osMessageQDef(myQueue01, 16, uint16_t);
+  myQueue01Handle = osMessageCreate(osMessageQ(myQueue01), NULL);
+
+  /* definition and creation of myQueue02 */
+  osMessageQDef(myQueue02, 16, uint16_t);
+  myQueue02Handle = osMessageCreate(osMessageQ(myQueue02), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -258,10 +269,10 @@ void StartDefaultTask(void const * argument)
 
       sys_thread_new("udp_thread", udp_thread, NULL, DEFAULT_THREAD_STACKSIZE, osPriorityNormal);
 
- //     if( sys_thread_new("modb_thread", vMBServerTask, NULL, DEFAULT_THREAD_STACKSIZE, mainMB_TASK_PRIORITY ) == NULL )
-  //       {
-  //           printfpd("\n\r %s: can't create modbus task!\r\n", PROG );
-  //       }
+      if( sys_thread_new("modb_thread", vMBServerTask, NULL, DEFAULT_THREAD_STACKSIZE, mainMB_TASK_PRIORITY ) == NULL )
+         {
+             printfpd("\n\r %s: can't create modbus task!\r\n", PROG );
+         }
 
   conn = netconn_new(NETCONN_TCP);
     if (conn != NULL)
@@ -561,17 +572,17 @@ void StartTask04(void const * argument)
   /* USER CODE END StartTask04 */
 }
 
-/* StartTask05_modbus function */
-void StartTask05_modbus(void const * argument)
+/* StartTask05 function */
+void StartTask05(void const * argument)
 {
-  /* USER CODE BEGIN StartTask05_modbus */
-	vMBServerTask();
+  /* USER CODE BEGIN StartTask05 */
+  vMBServerTask();
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END StartTask05_modbus */
+  /* USER CODE END StartTask05 */
 }
 
 /* USER CODE BEGIN Application */
@@ -702,7 +713,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
             the HAL_SPI_RxCpltCallback should be implemented in the user file
   */
 }
-
+/*
 void
 //vMBServerTask( void *arg )
 vMBServerTask( void )
@@ -736,12 +747,15 @@ vMBServerTask( void )
 
     }
 }
+*/
 
-/*
 void
 vMBServerTask( void )
 {
     eMBErrorCode    xStatus;
+  //  return;
+   char flag = 1;
+
     if( eMBTCPInit( MB_TCP_PORT_USE_DEFAULT ) != MB_ENOERR )
         {
             printfp(" can't initialize modbus stack!\r\n");
@@ -749,18 +763,21 @@ vMBServerTask( void )
         else if( eMBEnable(  ) != MB_ENOERR )
         {
             printfp( "can't enable modbus stack!\r\n");
+            flag = 0;
+            ( void )eMBDisable(  );
+            ( void )eMBClose(  );
         }
         else {
-       	  ( void )eMBDisable(  );
-         ( void )eMBClose(  );
-        	return;
+            printfp( " modbus init ok!\r\n");
+        //	return;
         }
      for( ;; )
     {
-               xStatus = eMBPoll(  );
+              if(flag) { xStatus = eMBPoll();}
+               osDelay(1);
     }
  }
-*/
+
 
 eMBErrorCode
 eMBRegCoilsCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegisterMode eMode )
@@ -772,7 +789,7 @@ eMBRegCoilsCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegis
 eMBErrorCode
 eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNDiscrete )
 {
-    return MB_ENOREG;
+    return MB_ENOREG;  //need realize and change to MB_ENOERR;
 }
 
 eMBErrorCode

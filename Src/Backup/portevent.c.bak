@@ -50,11 +50,11 @@ BOOL
 xMBPortEventInit( void )
 {
 	sys_mbox_t mbox;
-	int size= 100; //need chack value
-	int ret;
+	int size= 10; //need check value
+//	int ret;
     eMailBoxEvent = EV_READY;
-    ret = sys_mbox_new(&xMailBox, size);
-    return ret != SYS_MBOX_NULL ? TRUE : FALSE;
+    sys_mbox_new(&xMailBox, size);
+    return xMailBox != SYS_MBOX_NULL ? TRUE : FALSE;
 }
 
 void
